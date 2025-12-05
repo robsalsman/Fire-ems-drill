@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TX Fire/EMS Drill</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>Fire/EMS Drill</h1>
+    <div class="stats">
+      <span id="streak">Streak: 0</span>
+      <span id="xp">XP: 0</span>
+      <span id="enduranceLevel">Endurance: 0 min</span>
+    </div>
+  </header>
+
+  <main>
+    <section id="dashboard">
+      <h2>Today’s Shift</h2>
+      <p id="dailyGoal">Goal: 20 questions or 20 focus minutes</p>
+
+      <div class="controls column">
+        <label>
+          Topic:
+          <select id="topicSelect">
+            <option value="all">All Topics</option>
+            <option value="Fire Behavior">Fire Behavior</option>
+            <option value="SCBA">SCBA</option>
+            <option value="Ladders">Ladders</option>
+            <option value="ICS">ICS</option>
+            <option value="HazMat">HazMat</option>
+            <option value="EMS Airway">EMS Airway</option>
+            <option value="EMS Cardiology">EMS Cardiology</option>
+          </select>
+        </label>
+
+        <label>
+          Mode:
+          <select id="modeSelect">
+            <option value="quick">Quick Drill (~20 Q)</option>
+            <option value="focus30">30-Min Focus Shift</option>
+            <option value="focus60">60-Min Long Shift</option>
+            <option value="exam120">120-Min Exam Sim (FF1-style)</option>
+          </select>
+        </label>
+
+        <label class="stress-toggle">
+          <input type="checkbox" id="stressMode">
+          Stress Mode (breathing trainer)
+        </label>
+      </div>
+
+      <button id="startBtn">Start</button>
+
+      <div id="stressNotice" class="notice hidden">
+        <strong>Stress Mode:</strong> Put on your breathing trainer/mask now.
+        Use only as recommended. Stop if you feel dizzy or unwell. Never train alone.
+      </div>
+
+      <div id="plan">
+        <h3>Endurance Plan</h3>
+        <ul>
+          <li><strong>Level 1:</strong> 3× 20-min Focus Shifts</li>
+          <li><strong>Level 2:</strong> Add 45–60-min Long Shifts</li>
+          <li><strong>Level 3:</strong> Weekly 90–120-min Exam Sim</li>
+          <li><strong>Level 4:</strong> Optional 4-hr combined mock before academy</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="quiz" class="hidden">
+      <div id="sessionTimerBar">
+        <span>Session left: <span id="sessionMinutes">0</span> min</span>
+      </div>
+
+      <div id="timerContainer" class="hidden">
+        <span>Per-question: <span id="timer">20</span>s</span>
+        <div id="breathingCue">Breathe in…</div>
+      </div>
+
+      <div id="questionMeta">
+        <span id="questionCount"></span>
+        <span id="questionTopic"></span>
+      </div>
+
+      <div id="questionText"></div>
+
+      <div id="choices"></div>
+
+      <button id="nextBtn" class="hidden">Next</button>
+
+      <div id="feedback"></div>
+    </section>
+
+    <section id="summary" class="hidden">
+      <h2>Shift Summary</h2>
+      <p id="summaryText"></p>
+      <p id="enduranceSummary"></p>
+      <button id="againBtn">Back to Dashboard</button>
+    </section>
+  </main>
+
+  <footer>
+    <small>Unofficial practice tool for Denton ISD / NCTC Fire & EMS pathway.</small>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+<
