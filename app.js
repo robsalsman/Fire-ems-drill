@@ -1,16 +1,10 @@
-// Endurance-enabled Fire/EMS drill app
-//
-// This version adds:
-// - Call sign (username) per device
-// - Global leaderboard via Supabase
-// - Same endurance + XP logic as before
+// Endurance-enabled Fire/EMS drill app with global Supabase leaderboard
 
 (function () {
-  // ====== CONFIGURE THESE TWO VALUES FROM SUPABASE DASHBOARD ======
+  // ====== YOUR SUPABASE CONFIG (from .env.local) ======
   const SUPABASE_URL = 'https://jjtbyugsnjufjkhsjuir.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_LA8En2i38dR4X3oqMlCTuQ_vdU0a7HE
-';
-  // ================================================================
+  const SUPABASE_KEY = 'sb_publishable_LA8En2i38dR4X3oqMlCTuQ_vdU0a7HE';
+  // ====================================================
 
   function init() {
     // Question bank for practice drills
@@ -28,7 +22,8 @@
           'Water steaming off surfaces after application'
         ],
         answerIndex: 0,
-        explanation: 'Isolated, rolling flames (rollover) in the upper smoke layer are a classic early warning of flashover.',
+        explanation:
+          'Isolated, rolling flames (rollover) in the upper smoke layer are a classic early warning of flashover.',
         difficulty: 1
       },
       {
@@ -44,7 +39,8 @@
           'Only when ordered by the safety officer'
         ],
         answerIndex: 1,
-        explanation: 'SCBA is required for any known or suspected IDLH environment, including overhaul until air monitoring clears the area.',
+        explanation:
+          'SCBA is required for any known or suspected IDLH environment, including overhaul until air monitoring clears the area.',
         difficulty: 1
       },
       {
@@ -55,7 +51,8 @@
         prompt: 'At what approximate angle should a ground ladder be placed for safe climbing?',
         choices: ['45 degrees', '60 degrees', '75 degrees', '90 degrees'],
         answerIndex: 2,
-        explanation: 'Around 75 degrees (1:4 ratio base distance to working length) provides a safe climbing angle.',
+        explanation:
+          'Around 75 degrees (1:4 ratio base distance to working length) provides a safe climbing angle.',
         difficulty: 1
       },
       {
@@ -87,7 +84,8 @@
           'Indicate the nearest fire hydrant'
         ],
         answerIndex: 1,
-        explanation: 'The 4-digit UN/NA number is a unique identifier for the hazardous material, referenced in the ERG.',
+        explanation:
+          'The 4-digit UN/NA number is a unique identifier for the hazardous material, referenced in the ERG.',
         difficulty: 1
       },
       {
@@ -103,7 +101,8 @@
           'Immediate chest compressions without assessment'
         ],
         answerIndex: 1,
-        explanation: 'Basic management for a conscious choking adult is abdominal thrusts until relieved or they become unresponsive.',
+        explanation:
+          'Basic management for a conscious choking adult is abdominal thrusts until relieved or they become unresponsive.',
         difficulty: 1
       },
       {
@@ -119,7 +118,8 @@
           'Place the patient in a position of comfort'
         ],
         answerIndex: 2,
-        explanation: 'Early, effective CPR and rapid defibrillation with an AED significantly improve survival in cardiac arrest.',
+        explanation:
+          'Early, effective CPR and rapid defibrillation with an AED significantly improve survival in cardiac arrest.',
         difficulty: 1
       }
     ];
@@ -191,9 +191,7 @@
       let name = '';
       while (!name) {
         name = window.prompt('Enter your call sign (nickname used on the leaderboard):');
-        if (name === null) {
-          continue;
-        }
+        if (name === null) continue;
         name = name.trim();
       }
       return name;
@@ -267,9 +265,9 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': SUPABASE_KEY,
-            'Authorization': `Bearer ${SUPABASE_KEY}`,
-            'Prefer': 'resolution=merge-duplicates'
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${SUPABASE_KEY}`,
+            Prefer: 'resolution=merge-duplicates'
           },
           body: JSON.stringify(payload)
         });
@@ -347,18 +345,10 @@
       }
       const shuffled = [...pool].sort(() => Math.random() - 0.5);
 
-      if (mode === 'quick') {
-        return shuffled.slice(0, Math.min(20, shuffled.length));
-      }
-      if (mode === 'focus30') {
-        return shuffled.slice(0, Math.min(40, shuffled.length));
-      }
-      if (mode === 'focus60') {
-        return shuffled.slice(0, Math.min(80, shuffled.length));
-      }
-      if (mode === 'exam120') {
-        return shuffled.slice(0, Math.min(150, shuffled.length));
-      }
+      if (mode === 'quick') return shuffled.slice(0, Math.min(20, shuffled.length));
+      if (mode === 'focus30') return shuffled.slice(0, Math.min(40, shuffled.length));
+      if (mode === 'focus60') return shuffled.slice(0, Math.min(80, shuffled.length));
+      if (mode === 'exam120') return shuffled.slice(0, Math.min(150, shuffled.length));
       return shuffled;
     }
 
@@ -445,8 +435,7 @@
         state.perQuestionTimer = setInterval(() => {
           state.timeLeft--;
           timerEl.textContent = state.timeLeft;
-          breathingCueEl.textContent =
-            state.timeLeft % 4 < 2 ? 'Breathe in…' : 'Breathe out…';
+          breathingCueEl.textContent = state.timeLeft % 4 < 2 ? 'Breathe in…' : 'Breathe out…';
           if (state.timeLeft <= 0) {
             clearPerQuestionTimer();
             handleAnswer(null);
@@ -474,9 +463,7 @@
 
       buttons.forEach((btn, idx) => {
         btn.disabled = true;
-        if (idx === q.answerIndex) {
-          btn.classList.add('correct');
-        }
+        if (idx === q.answerIndex) btn.classList.add('correct');
         if (selectedIndex !== null && idx === selectedIndex && idx !== q.answerIndex) {
           btn.classList.add('incorrect');
         }
@@ -485,9 +472,7 @@
       if (selectedIndex === q.answerIndex) {
         state.correctCount++;
         state.xp += state.examMode ? 8 : 5;
-        if (!state.examMode) {
-          feedbackEl.textContent = 'Correct.';
-        }
+        if (!state.examMode) feedbackEl.textContent = 'Correct.';
       } else if (selectedIndex === null) {
         if (!state.examMode) {
           feedbackEl.textContent = `Time up. Correct answer: ${q.choices[q.answerIndex]}. ${q.explanation}`;
@@ -555,7 +540,6 @@
     loadLeaderboard();
   }
 
-  // Run init when DOM is ready (or immediately if already loaded)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
