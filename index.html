@@ -10,6 +10,7 @@
   <header class="app-header">
     <h1>Fire/EMS Drill</h1>
     <div class="stats">
+      <span id="usernameDisplay">Call sign: —</span>
       <span id="streak">Streak: 0</span>
       <span id="xp">XP: 0</span>
       <span id="enduranceLevel">Endurance: 0 min</span>
@@ -19,6 +20,17 @@
   <main>
     <section id="dashboard">
       <h2>Today’s Shift</h2>
+
+      <section id="leaderboardSection">
+        <h3>Leaderboard</h3>
+        <p id="leaderboardNote" style="font-size:0.75rem;">
+          Enter a call sign and finish a session to appear here.
+        </p>
+        <ol id="leaderboardList" style="font-size:0.8rem; padding-left:1.1rem;">
+          <!-- filled from JS -->
+        </ol>
+      </section>
+
       <p id="dailyGoal">Goal: 20 questions or 20 focus minutes</p>
 
       <div class="controls column">
@@ -108,4 +120,4 @@
 
   <script src="app.js"></script>
 </body>
-<
+</html>
