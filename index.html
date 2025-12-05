@@ -23,10 +23,10 @@
 
       <section id="leaderboardSection">
         <h3>Leaderboard</h3>
-        <p id="leaderboardNote" style="font-size:0.75rem;">
+        <p id="leaderboardNote" class="leaderboard-note">
           Enter a call sign and finish a session to appear here.
         </p>
-        <ol id="leaderboardList" style="font-size:0.8rem; padding-left:1.1rem;">
+        <ol id="leaderboardList" class="leaderboard-list">
           <!-- filled from JS -->
         </ol>
       </section>
@@ -64,7 +64,7 @@
         </label>
       </div>
 
-      <button id="startBtn">Start</button>
+      <button id="startBtn" class="primary-btn">Start</button>
 
       <div id="stressNotice" class="notice hidden">
         <strong>Stress Mode:</strong> Put on your breathing trainer/mask now.
@@ -101,7 +101,7 @@
 
       <div id="choices"></div>
 
-      <button id="nextBtn" class="hidden">Next</button>
+      <button id="nextBtn" class="primary-btn hidden">Next</button>
 
       <div id="feedback"></div>
     </section>
@@ -110,12 +110,12 @@
       <h2>Shift Summary</h2>
       <p id="summaryText"></p>
       <p id="enduranceSummary"></p>
-      <button id="againBtn">Back to Dashboard</button>
+      <button id="againBtn" class="secondary-btn">Back to Dashboard</button>
     </section>
   </main>
 
   <footer>
-    <small>Unofficial practice tool for Denton ISD / NCTC Fire & EMS pathway.</small>
+    <small>Unofficial practice tool for Denton ISD / NCTC Fire &amp; EMS pathway.</small>
   </footer>
 
   <script src="app.js"></script>
