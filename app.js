@@ -14,7 +14,7 @@ const QUESTIONS = [
       'Water steaming off surfaces after application'
     ],
     answerIndex: 0,
-    explanation: 'Isolated, rolling flames (“rollover”) in the upper smoke layer are a classic early warning of flashover.',
+    explanation: 'Isolated, rolling flames (rollover) in the upper smoke layer are a classic early warning of flashover.',
     difficulty: 1
   },
   {
@@ -94,7 +94,7 @@ const QUESTIONS = [
       'Immediate chest compressions without assessment'
     ],
     answerIndex: 1,
-    explanation: 'Current basic airway management for a conscious choking adult is abdominal thrusts until relieved or they become unresponsive.',
+    explanation: 'Basic management for a conscious choking adult is abdominal thrusts until relieved or they become unresponsive.',
     difficulty: 1
   },
   {
@@ -162,7 +162,7 @@ let state = {
   sessionEndTime: null,
   sessionStartTime: null,
   sessionTimerInterval: null,
-  examMode: false,  // true for 120-min exam sim
+  examMode: false,
   answered: false
 };
 
@@ -193,7 +193,7 @@ function modeToDuration(mode) {
     case 'focus30': return 30;
     case 'focus60': return 60;
     case 'exam120': return 120;
-    default: return 0;  // Quick drill = question-limited, not time-limited
+    default: return 0;
   }
 }
 
@@ -208,7 +208,7 @@ function pickQuestions(topicValue, mode) {
     return shuffled.slice(0, Math.min(20, shuffled.length));
   }
   if (mode === 'focus30') {
-    return shuffled.slice(0, Math.min(40, shuffled.length)); // rough
+    return shuffled.slice(0, Math.min(40, shuffled.length));
   }
   if (mode === 'focus60') {
     return shuffled.slice(0, Math.min(80, shuffled.length));
@@ -227,7 +227,7 @@ function startSessionTimer(durationMinutes) {
   state.sessionStartTime = Date.now();
   state.sessionEndTime = state.sessionStartTime + durationMinutes * 60000;
   updateSessionTimeLeft();
-  state.sessionTimerInterval = setInterval(updateSessionTimeLeft, 1000 * 15); // update every 15s
+  state.sessionTimerInterval = setInterval(updateSessionTimeLeft, 15000);
 }
 
 function updateSessionTimeLeft() {
@@ -268,3 +268,136 @@ function startDrill() {
   startSessionTimer(durationMinutes);
 
   showQuestion();
+}
+
+function showQuestion() {
+  clearPerQuestionTimer();
+  feedbackEl.textContent = '';
+  nextBtn.classList.add('hidden');
+  choicesEl.innerHTML = '';
+  state.answered = false;
+
+  if (state.currentIndex >= state.sessionQuestions.length) {
+    endDrill(false);
+    return;
+  }
+
+  const q = state.sessionQuestions[state.currentIndex];
+
+  questionCountEl.textContent = `Question ${state.currentIndex + 1} of ${state.sessionQuestions.length}`;
+  questionTopicEl.textContent = q.topic;
+  questionTextEl.textContent = q.prompt;
+
+  q.choices.forEach((choice, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = choice;
+    btn.addEventListener('click', () => handleAnswer(idx));
+    choicesEl.appendChild(btn);
+  });
+
+  if (state.stressMode) {
+    state.timeLeft = 20;
+    timerEl.textContent = state.timeLeft;
+    breathingCueEl.textContent = 'Breathe in…';
+    state.perQuestionTimer = setInterval(() => {
+      state.timeLeft--;
+      timerEl.textContent = state.timeLeft;
+      breathingCueEl.textContent = state.timeLeft % 4 < 2 ? 'Breathe in…' : 'Breathe out…';
+      if (state.timeLeft <= 0) {
+        clearPerQuestionTimer();
+        handleAnswer(null);
+      }
+    }, 1000);
+  } else {
+    timerEl.textContent = '-';
+  }
+}
+
+function clearPerQuestionTimer() {
+  if (state.perQuestionTimer) {
+    clearInterval(state.perQuestionTimer);
+    state.perQuestionTimer = null;
+  }
+}
+
+function handleAnswer(selectedIndex) {
+  if (state.answered) return;
+  state.answered = true;
+  clearPerQuestionTimer();
+
+  const q = state.sessionQuestions[state.currentIndex];
+  const buttons = choicesEl.querySelectorAll('.choice-btn');
+
+  buttons.forEach((btn, idx) => {
+    btn.disabled = true;
+    if (idx === q.answerIndex) {
+      btn.classList.add('correct');
+    }
+    if (selectedIndex !== null && idx === selectedIndex && idx !== q.answerIndex) {
+      btn.classList.add('incorrect');
+    }
+  });
+
+  if (selectedIndex === q.answerIndex) {
+    state.correctCount++;
+    state.xp += state.examMode ? 8 : 5;
+  } else if (selectedIndex === null) {
+    if (!state.examMode) {
+      feedbackEl.textContent = `Time up. Correct answer: ${q.choices[q.answerIndex]}. ${q.explanation}`;
+    }
+  } else {
+    if (!state.examMode) {
+      feedbackEl.textContent = `Incorrect. ${q.explanation}`;
+    }
+  }
+
+  updateHeader();
+  saveState();
+  nextBtn.classList.remove('hidden');
+}
+
+function nextQuestion() {
+  state.currentIndex++;
+  showQuestion();
+}
+
+function endDrill(timeExpired) {
+  clearPerQuestionTimer();
+  clearSessionTimer();
+  quizSection.classList.add('hidden');
+  summarySection.classList.remove('hidden');
+
+  const total = state.sessionQuestions.length;
+  const pct = total ? Math.round((state.correctCount / total) * 100) : 0;
+  const now = Date.now();
+  let usedMinutes = 0;
+  if (state.sessionStartTime) {
+    usedMinutes = Math.round((now - state.sessionStartTime) / 60000);
+  }
+
+  summaryTextEl.textContent =
+    `You answered ${state.correctCount} of ${total} correctly (${pct}%).` +
+    (timeExpired ? ' Session ended because the endurance time was up.' : '');
+
+  enduranceSummaryEl.textContent = usedMinutes
+    ? `Focus time this session: ~${usedMinutes} minutes.`
+    : '';
+
+  if (usedMinutes > state.bestEnduranceMinutes) {
+    state.bestEnduranceMinutes = usedMinutes;
+  }
+
+  state.streak++;
+  updateHeader();
+  saveState();
+}
+
+startBtn.addEventListener('click', startDrill);
+nextBtn.addEventListener('click', nextQuestion);
+againBtn.addEventListener('click', () => {
+  summarySection.classList.add('hidden');
+  dashboard.classList.remove('hidden');
+});
+
+loadState();
