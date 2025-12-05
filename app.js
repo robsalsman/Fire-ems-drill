@@ -1,14 +1,19 @@
 // Endurance-enabled Fire/EMS drill app
 //
-// This version guards against the script running after DOMContentLoaded has
-// already fired. It defines an init() function containing all of the
-// application logic and runs it immediately if the DOM is already ready,
-// otherwise it waits for the DOMContentLoaded event.
+// This version adds:
+// - Call sign (username) per device
+// - Global leaderboard via Supabase
+// - Same endurance + XP logic as before
 
-(function() {
+(function () {
+  // ====== CONFIGURE THESE TWO VALUES FROM SUPABASE DASHBOARD ======
+  const SUPABASE_URL = 'https://jjtbyugsnjufjkhsjuir.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_LA8En2i38dR4X3oqMlCTuQ_vdU0a7HE
+';
+  // ================================================================
+
   function init() {
-    // Question bank for practice drills. Each question has an ID, exam
-    // information, a prompt, answer options and an explanation.
+    // Question bank for practice drills
     const QUESTIONS = [
       {
         id: 'FFI-FB-001',
@@ -82,7 +87,7 @@
           'Indicate the nearest fire hydrant'
         ],
         answerIndex: 1,
-        explanation: 'The 4‑digit UN/NA number is a unique identifier for the hazardous material, referenced in the ERG.',
+        explanation: 'The 4-digit UN/NA number is a unique identifier for the hazardous material, referenced in the ERG.',
         difficulty: 1
       },
       {
@@ -109,8 +114,8 @@
         prompt: 'The most important first step in managing a suspected cardiac arrest is:',
         choices: [
           'Obtain a full medical history',
-          'Apply oxygen via non‑rebreather mask',
-          'Start high‑quality CPR and have someone activate EMS and get an AED',
+          'Apply oxygen via non-rebreather mask',
+          'Start high-quality CPR and have someone activate EMS and get an AED',
           'Place the patient in a position of comfort'
         ],
         answerIndex: 2,
@@ -119,10 +124,11 @@
       }
     ];
 
-    // Cache important DOM elements once. We reference them throughout the app.
+    // DOM refs
     const streakEl = document.getElementById('streak');
     const xpEl = document.getElementById('xp');
     const enduranceLevelEl = document.getElementById('enduranceLevel');
+    const usernameDisplayEl = document.getElementById('usernameDisplay');
 
     const topicSelect = document.getElementById('topicSelect');
     const modeSelect = document.getElementById('modeSelect');
@@ -151,18 +157,21 @@
     const enduranceSummaryEl = document.getElementById('enduranceSummary');
     const againBtn = document.getElementById('againBtn');
 
-    // Guard: if the start button cannot be found then our HTML has changed.
+    const leaderboardListEl = document.getElementById('leaderboardList');
+    const leaderboardNoteEl = document.getElementById('leaderboardNote');
+
     if (!startBtn) {
       console.error('Start button not found; check HTML IDs.');
       return;
     }
 
-    // Persistent state for the session. Will be updated as the user answers
-    // questions. bestEnduranceMinutes persists across sessions via localStorage.
+    // State
     let state = {
       streak: 0,
       xp: 0,
       bestEnduranceMinutes: 0,
+      sessions: 0,
+      username: null,
       sessionQuestions: [],
       currentIndex: 0,
       correctCount: 0,
@@ -177,21 +186,53 @@
       answered: false
     };
 
-    // Attempt to load streak, XP and endurance from localStorage.
-    // Wrapped in try/catch so that the app still works if storage is disabled.
+    // ---------- USERNAME (CALL SIGN) ----------
+    function promptForUsername() {
+      let name = '';
+      while (!name) {
+        name = window.prompt('Enter your call sign (nickname used on the leaderboard):');
+        if (name === null) {
+          continue;
+        }
+        name = name.trim();
+      }
+      return name;
+    }
+
+    function ensureUsername() {
+      try {
+        const stored = localStorage.getItem('fireDrillUsername');
+        if (stored) {
+          state.username = stored;
+        } else {
+          const name = promptForUsername();
+          state.username = name;
+          localStorage.setItem('fireDrillUsername', name);
+        }
+      } catch (e) {
+        if (!state.username) {
+          state.username = promptForUsername();
+        }
+      }
+      if (usernameDisplayEl) {
+        usernameDisplayEl.textContent = `Call sign: ${state.username}`;
+      }
+    }
+
+    // ---------- LOCAL STORAGE FOR STATS ----------
     function safeLoad() {
       try {
         const saved = JSON.parse(localStorage.getItem('fireDrillState') || '{}');
         state.streak = saved.streak || 0;
         state.xp = saved.xp || 0;
         state.bestEnduranceMinutes = saved.bestEnduranceMinutes || 0;
+        state.sessions = saved.sessions || 0;
       } catch (e) {
-        // ignore if localStorage is not available
+        // ignore
       }
       updateHeader();
     }
 
-    // Persist streak, XP and endurance back to localStorage.
     function safeSave() {
       try {
         localStorage.setItem(
@@ -199,22 +240,93 @@
           JSON.stringify({
             streak: state.streak,
             xp: state.xp,
-            bestEnduranceMinutes: state.bestEnduranceMinutes
+            bestEnduranceMinutes: state.bestEnduranceMinutes,
+            sessions: state.sessions
           })
         );
       } catch (e) {
-        // ignore if localStorage is not available
+        // ignore
       }
     }
 
-    // Update the small header showing streak, XP and endurance.
+    // ---------- SUPABASE HELPERS ----------
+    async function syncScoreToSupabase() {
+      if (!SUPABASE_URL || !SUPABASE_KEY || !state.username) return;
+
+      const payload = [
+        {
+          username: state.username,
+          xp: state.xp,
+          best_endurance_minutes: state.bestEnduranceMinutes,
+          sessions: state.sessions
+        }
+      ];
+
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/scores`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify(payload)
+        });
+      } catch (e) {
+        console.warn('Failed to sync score to Supabase', e);
+      }
+    }
+
+    function renderLeaderboard(rows) {
+      if (!leaderboardListEl) return;
+      leaderboardListEl.innerHTML = '';
+
+      if (!rows || rows.length === 0) {
+        if (leaderboardNoteEl) {
+          leaderboardNoteEl.textContent = 'No scores yet. Finish a session to claim your spot.';
+        }
+        return;
+      }
+
+      if (leaderboardNoteEl) {
+        leaderboardNoteEl.textContent = 'Top call signs (by XP):';
+      }
+
+      rows.forEach((row, index) => {
+        const li = document.createElement('li');
+        const you = row.username === state.username ? ' (you)' : '';
+        li.textContent = `${index + 1}. ${row.username}${you} – ${row.xp} XP – ${row.best_endurance_minutes} min – ${row.sessions} sessions`;
+        leaderboardListEl.appendChild(li);
+      });
+    }
+
+    async function loadLeaderboard() {
+      if (!SUPABASE_URL || !SUPABASE_KEY) return;
+      try {
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/scores?select=username,xp,best_endurance_minutes,sessions&order=xp.desc&limit=20`,
+          {
+            headers: {
+              apikey: SUPABASE_KEY,
+              Authorization: `Bearer ${SUPABASE_KEY}`
+            }
+          }
+        );
+        const data = await res.json();
+        renderLeaderboard(data);
+      } catch (e) {
+        console.warn('Failed to load leaderboard from Supabase', e);
+      }
+    }
+
+    // ---------- UI HELPERS ----------
     function updateHeader() {
       streakEl.textContent = `Streak: ${state.streak}`;
       xpEl.textContent = `XP: ${state.xp}`;
       enduranceLevelEl.textContent = `Endurance: ${state.bestEnduranceMinutes} min`;
     }
 
-    // Convert a mode string into a target duration in minutes.
     function modeToDuration(mode) {
       switch (mode) {
         case 'focus30':
@@ -228,14 +340,13 @@
       }
     }
 
-    // Return a randomized subset of questions appropriate for the chosen topic
-    // and mode. Quick drills return up to 20; focus modes return more.
     function pickQuestions(topicValue, mode) {
       let pool = QUESTIONS;
       if (topicValue !== 'all') {
         pool = QUESTIONS.filter(q => q.topic === topicValue);
       }
       const shuffled = [...pool].sort(() => Math.random() - 0.5);
+
       if (mode === 'quick') {
         return shuffled.slice(0, Math.min(20, shuffled.length));
       }
@@ -251,8 +362,6 @@
       return shuffled;
     }
 
-    // Start the overall session timer. If durationMinutes is 0 then the
-    // session is untimed (quick drill).
     function startSessionTimer(durationMinutes) {
       if (!durationMinutes) {
         sessionMinutesEl.textContent = '∞';
@@ -264,7 +373,6 @@
       state.sessionTimerInterval = setInterval(updateSessionTimeLeft, 15000);
     }
 
-    // Update the session timer bar. End the drill when time expires.
     function updateSessionTimeLeft() {
       if (!state.sessionEndTime) return;
       const now = Date.now();
@@ -276,7 +384,6 @@
       }
     }
 
-    // Clear the session timer when the session ends.
     function clearSessionTimer() {
       if (state.sessionTimerInterval) {
         clearInterval(state.sessionTimerInterval);
@@ -285,8 +392,6 @@
       state.sessionEndTime = null;
     }
 
-    // Called when the user presses Start. Initializes session state and
-    // launches the first question.
     function startDrill() {
       state.mode = modeSelect.value;
       state.sessionQuestions = pickQuestions(topicSelect.value, state.mode);
@@ -308,8 +413,6 @@
       showQuestion();
     }
 
-    // Display the current question. If we've reached the end of the
-    // questions array then wrap up the drill.
     function showQuestion() {
       clearPerQuestionTimer();
       feedbackEl.textContent = '';
@@ -342,7 +445,8 @@
         state.perQuestionTimer = setInterval(() => {
           state.timeLeft--;
           timerEl.textContent = state.timeLeft;
-          breathingCueEl.textContent = state.timeLeft % 4 < 2 ? 'Breathe in…' : 'Breathe out…';
+          breathingCueEl.textContent =
+            state.timeLeft % 4 < 2 ? 'Breathe in…' : 'Breathe out…';
           if (state.timeLeft <= 0) {
             clearPerQuestionTimer();
             handleAnswer(null);
@@ -353,7 +457,6 @@
       }
     }
 
-    // Clear the per-question countdown timer.
     function clearPerQuestionTimer() {
       if (state.perQuestionTimer) {
         clearInterval(state.perQuestionTimer);
@@ -361,9 +464,6 @@
       }
     }
 
-    // Process an answer click. If selectedIndex is null then the answer was
-    // timed out. Provide feedback (except in exam mode) and reveal the Next
-    // button.
     function handleAnswer(selectedIndex) {
       if (state.answered) return;
       state.answered = true;
@@ -371,6 +471,7 @@
 
       const q = state.sessionQuestions[state.currentIndex];
       const buttons = choicesEl.querySelectorAll('.choice-btn');
+
       buttons.forEach((btn, idx) => {
         btn.disabled = true;
         if (idx === q.answerIndex) {
@@ -402,13 +503,11 @@
       nextBtn.classList.remove('hidden');
     }
 
-    // Advance to the next question.
     function nextQuestion() {
       state.currentIndex++;
       showQuestion();
     }
 
-    // Conclude the drill. Provide a summary and update endurance.
     function endDrill(timeExpired) {
       clearPerQuestionTimer();
       clearSessionTimer();
@@ -435,11 +534,15 @@
       }
 
       state.streak++;
+      state.sessions++;
+
       updateHeader();
       safeSave();
+      syncScoreToSupabase();
+      loadLeaderboard();
     }
 
-    // Attach event listeners and restore any saved state.
+    // Event wiring + startup
     startBtn.addEventListener('click', startDrill);
     nextBtn.addEventListener('click', nextQuestion);
     againBtn.addEventListener('click', () => {
@@ -448,10 +551,11 @@
     });
 
     safeLoad();
+    ensureUsername();
+    loadLeaderboard();
   }
 
-  // If the DOM is already loaded, run init() immediately; otherwise wait
-  // for the DOMContentLoaded event.
+  // Run init when DOM is ready (or immediately if already loaded)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
